@@ -1,0 +1,12 @@
+{% extends 'layout.html' %}
+{% block body %}
+
+    <h3>files</h3>
+    <ul>
+    {% for item in items %}
+        <li>{{ item.path }}</li>
+    {% endfor %}
+    </ul>
+
+{% endblock %}
+
