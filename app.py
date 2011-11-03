@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from flask import Flask, request, session, redirect, url_for, \
+from flask import Flask, request, session, redirect, url_for, g, \
                   render_template
 
 import dropbox 
@@ -14,7 +14,10 @@ APP_KEY = 'YOUR_APP_KEY'
 APP_SECRET = 'YOUR_APP_SECRET'
 ACCESS_TYPE = 'app_folder'
 
-sess = dropbox.session.DropboxSession(APP_KEY, APP_SECRET, ACCESS_TYPE)
+
+@app.before_request
+def before_request():
+    g.sess = dropbox.session.DropboxSession(APP_KEY, APP_SECRET, ACCESS_TYPE)
 
 @app.route('/')
 def index():
@@ -36,10 +39,9 @@ def list():
             return redirect_authorize_url(url_for('list'))
             
     else:
-        authorized_token = oauth.OAuthToken(access_token, access_token_secret)
-        sess.set_token(authorized_token.key, authorized_token.secret)
+        g.sess.set_token(access_token, access_token_secret)
 
-    client = dropbox.client.DropboxClient(sess)
+    client = dropbox.client.DropboxClient(g.sess)
     folder_metadata = client.metadata('/')
 
     return render_template('list.html', items = folder_metadata['contents'])
@@ -50,7 +52,7 @@ def get_access_token(request_token, request_token_secret):
     if access_token is None:
         request_token = oauth.OAuthToken(request_token, request_token_secret)
         try:
-            access_token = sess.obtain_access_token(request_token)
+            access_token = g.sess.obtain_access_token(request_token)
             session['access_token'] = access_token.key
             session['access_token_secret'] = access_token.secret
         except dropbox.rest.ErrorResponse, r:
@@ -59,12 +61,12 @@ def get_access_token(request_token, request_token_secret):
     return access_token
     
 def redirect_authorize_url(url):
-    request_token = sess.obtain_request_token()
+    request_token = g.sess.obtain_request_token()
     session['request_token'] = request_token.key
     session['request_token_secret'] = request_token.secret
 
     callback_url = request.url_root + url
-    url = sess.build_authorize_url(request_token, oauth_callback=callback_url)
+    url = g.sess.build_authorize_url(request_token, oauth_callback=callback_url)
     return redirect(url)
 
 def requires_oauth(f):
@@ -85,7 +87,7 @@ def requires_oauth(f):
 
         else:
             authorized_token = oauth.OAuthToken(access_token, access_token_secret)
-            sess.set_token(authorized_token.key, authorized_token.secret)
+            g.sess.set_token(access_token, access_token_secret)
 
         return f(*args, **kwargs)
     return decorated_function
@@ -97,10 +99,10 @@ def upload():
         return render_template('upload.html')
         
     else:
-        sess.set_token(session.get('access_token'), 
-                       session.get('access_token_secret'))
+        g.sess.set_token(session.get('access_token'), 
+                         session.get('access_token_secret'))
 
-        client = dropbox.client.DropboxClient(sess)
+        client = dropbox.client.DropboxClient(g.sess)
                 
         uploadfile = request.files['file']
         filename = secure_filename(uploadfile.filename)
