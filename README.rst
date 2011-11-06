@@ -1,17 +1,27 @@
 dropbox apiのテスト
 =====================
+http://
+dotcloudにデプロイする場合
+--------------------
+dotcloud用に作ってありますので、
+dotcloudにデプロイして、
+環境変数を設定してください。
 
-このソースを利用して動作を試す場合には、
-以下の値を置き換えて使ってください。
+::
 
-app.secret_key='SECRET_KEY'
-  SECRET_KEYをランダムな文字列に変更
+$ dotcloud var set yourappname \
+    'SECRET_KEY=YOUR_SECRET_KEY' \
+    'APP_KEY=YOUR_APP_KEY' \
+    'APP_SECRET=YOUR_APP_SECRET'
 
-APP_KEY = 'YOUR_APP_KEY'
-  Dropboxで登録したアプリのキーに変更
+各値は以下に変更してください。
 
-APP_SECRET = 'YOUR_APP_SECRET'
-  Dropboxで登録したアプリのSECRETキーに変更
+YOUR_SECRET_KEY
+  ランダムな文字列に変更
 
+YOUR_APP_KEY
+  Dropboxで登録したアプリのAPP KEYに変更
 
+YOUR_APP_SECRET
+  Dropboxで登録したアプリのAPP SECRETに変更
 
