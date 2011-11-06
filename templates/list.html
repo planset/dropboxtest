@@ -4,7 +4,11 @@
     <h3>files</h3>
     <ul>
     {% for item in items %}
-        <li>{{ item.path }}</li>
+	        {% if item.thumb_exists %}
+	        <li><img src="{{ url_for('thumbnail', path=item.path[1:]) }}">{{ item.path }}</li>
+	        {% else %}
+	        <li>{{ item.path }}</li>
+	        {% endif %}
     {% endfor %}
     </ul>
 
