@@ -7,13 +7,16 @@ import oauth.oauth as oauth
 from functools import wraps
 from werkzeug import secure_filename
 
+import json
+with open('/home/dotcloud/environment.json') as f:
+    env = json.load(f)
+
 app = Flask(__name__)
-app.secret_key='SECRET_KEY'
+app.secret_key=env['SECRET_KEY']
 
-APP_KEY = 'YOUR_APP_KEY'
-APP_SECRET = 'YOUR_APP_SECRET'
+APP_KEY = env['APP_KEY']
+APP_SECRET = env['APP_SECRET']
 ACCESS_TYPE = 'app_folder'
-
 
 @app.before_request
 def before_request():
@@ -31,12 +34,12 @@ def list():
     access_token_secret = session.get('access_token_secret')
 
     if request_token is None or request_token_secret is None:
-        return redirect_authorize_url(url_for('list'))
+        return redirect_authorize_url(g.sess, url_for('list'))
 
     elif access_token is None or access_token_secret is None:
-        authorized_token = get_access_token(request_token, request_token_secret)
+        authorized_token = get_access_token(g.sess, request_token, request_token_secret)
         if authorized_token is None:
-            return redirect_authorize_url(url_for('list'))
+            return redirect_authorize_url(g.sess, url_for('list'))
             
     else:
         g.sess.set_token(access_token, access_token_secret)
@@ -46,13 +49,13 @@ def list():
 
     return render_template('list.html', items = folder_metadata['contents'])
 
-def get_access_token(request_token, request_token_secret):
+def get_access_token(sess, request_token, request_token_secret):
     access_token = None
     
     if access_token is None:
         request_token = oauth.OAuthToken(request_token, request_token_secret)
         try:
-            access_token = g.sess.obtain_access_token(request_token)
+            access_token = sess.obtain_access_token(request_token)
             session['access_token'] = access_token.key
             session['access_token_secret'] = access_token.secret
         except dropbox.rest.ErrorResponse, r:
@@ -60,14 +63,14 @@ def get_access_token(request_token, request_token_secret):
             
     return access_token
     
-def redirect_authorize_url(url):
-    request_token = g.sess.obtain_request_token()
+def redirect_authorize_url(sess, callback_url):
+    request_token = sess.obtain_request_token()
     session['request_token'] = request_token.key
     session['request_token_secret'] = request_token.secret
 
-    callback_url = request.url_root + url
-    url = g.sess.build_authorize_url(request_token, oauth_callback=callback_url)
-    return redirect(url)
+    oauth_callback = request.url_root + callback_url[1:]
+    authorize_url = sess.build_authorize_url(request_token, oauth_callback=oauth_callback)
+    return redirect(authorize_url)
 
 def requires_oauth(f):
     @wraps(f)
@@ -78,12 +81,12 @@ def requires_oauth(f):
         access_token_secret = session.get('access_token_secret')
 
         if request_token is None or request_token_secret is None:
-            return redirect_authorize_url(request.path)
+            return redirect_authorize_url(g.sess, request.path)
 
         elif access_token is None or access_token_secret is None:
-            authorized_token = get_access_token(request_token, request_token_secret)
+            authorized_token = get_access_token(g.sess, request_token, request_token_secret)
             if authorized_token is None:
-                return redirect_authorize_url(request.path)
+                return redirect_authorize_url(g.sess, request.path)
 
         else:
             authorized_token = oauth.OAuthToken(access_token, access_token_secret)
@@ -99,16 +102,21 @@ def upload():
         return render_template('upload.html')
         
     else:
-        g.sess.set_token(session.get('access_token'), 
-                         session.get('access_token_secret'))
-
         client = dropbox.client.DropboxClient(g.sess)
                 
         uploadfile = request.files['file']
         filename = secure_filename(uploadfile.filename)
         response = client.put_file('/' + filename, uploadfile.stream.getvalue())
         return redirect(url_for('list'))
-
+        
+@app.route('/thumbnail/<path:path>/')
+@requires_oauth
+def thumbnail(path):
+    client = dropbox.client.DropboxClient(g.sess)
+    res = client.thumbnail(path)
+    return Response(response=res.read(), content_type=res.msg.type)
+    
+    
 @app.route('/clear')
 def clear():
     del session['request_token']
