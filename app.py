@@ -7,7 +7,7 @@ import oauth.oauth as oauth
 from functools import wraps
 from werkzeug import secure_filename
 
-import json
+import simplejson as json
 with open('/home/dotcloud/environment.json') as f:
     env = json.load(f)
 
