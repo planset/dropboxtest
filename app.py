@@ -18,6 +18,30 @@ APP_KEY = env['APP_KEY']
 APP_SECRET = env['APP_SECRET']
 ACCESS_TYPE = 'app_folder'
 
+
+def requires_oauth(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        request_token = session.get('request_token')
+        request_token_secret = session.get('request_token_secret')
+        access_token = session.get('access_token')
+        access_token_secret = session.get('access_token_secret')
+
+        if request_token is None or request_token_secret is None:
+            return redirect_authorize_url(g.sess, request.path)
+
+        elif access_token is None or access_token_secret is None:
+            authorized_token = get_access_token(g.sess, request_token, request_token_secret)
+            if authorized_token is None:
+                return redirect_authorize_url(g.sess, request.path)
+
+        else:
+            authorized_token = oauth.OAuthToken(access_token, access_token_secret)
+            g.sess.set_token(access_token, access_token_secret)
+
+        return f(*args, **kwargs)
+    return decorated_function
+
 @app.before_request
 def before_request():
     g.sess = dropbox.session.DropboxSession(APP_KEY, APP_SECRET, ACCESS_TYPE)
@@ -76,28 +100,6 @@ def redirect_authorize_url(sess, callback_url):
     authorize_url = sess.build_authorize_url(request_token, oauth_callback=oauth_callback)
     return redirect(authorize_url)
 
-def requires_oauth(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        request_token = session.get('request_token')
-        request_token_secret = session.get('request_token_secret')
-        access_token = session.get('access_token')
-        access_token_secret = session.get('access_token_secret')
-
-        if request_token is None or request_token_secret is None:
-            return redirect_authorize_url(g.sess, request.path)
-
-        elif access_token is None or access_token_secret is None:
-            authorized_token = get_access_token(g.sess, request_token, request_token_secret)
-            if authorized_token is None:
-                return redirect_authorize_url(g.sess, request.path)
-
-        else:
-            authorized_token = oauth.OAuthToken(access_token, access_token_secret)
-            g.sess.set_token(access_token, access_token_secret)
-
-        return f(*args, **kwargs)
-    return decorated_function
 
 
 if __name__ == '__main__':
