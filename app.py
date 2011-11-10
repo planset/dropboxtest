@@ -22,47 +22,51 @@ ACCESS_TYPE = 'app_folder'
 def before_request():
     g.sess = dropbox.session.DropboxSession(APP_KEY, APP_SECRET, ACCESS_TYPE)
 
-@app.route('/')
-def index():
-    return render_template('index.html')
-        
 @app.route('/list')
+@requires_oauth
 def list():
-    request_token = session.get('request_token')
-    request_token_secret = session.get('request_token_secret')
-    access_token = session.get('access_token')
-    access_token_secret = session.get('access_token_secret')
-
-    if request_token is None or request_token_secret is None:
-        return redirect_authorize_url(g.sess, url_for('list'))
-
-    elif access_token is None or access_token_secret is None:
-        authorized_token = get_access_token(g.sess, request_token, request_token_secret)
-        if authorized_token is None:
-            return redirect_authorize_url(g.sess, url_for('list'))
-            
-    else:
-        g.sess.set_token(access_token, access_token_secret)
-
     client = dropbox.client.DropboxClient(g.sess)
     folder_metadata = client.metadata('/')
-
     return render_template('list.html', items = folder_metadata['contents'])
 
+@app.route('/upload', methods=['GET', 'POST'])
+@requires_oauth
+def upload():
+    if request.method == 'GET':
+        return render_template('upload.html')
+    else:
+        client = dropbox.client.DropboxClient(g.sess)
+        uploadfile = request.files['file']
+        filename = secure_filename(uploadfile.filename)
+        response = client.put_file('/' + filename, uploadfile.stream.getvalue())
+        return redirect(url_for('list'))
+        
+@app.route('/thumbnail/<path:path>/')
+@requires_oauth
+def thumbnail(path):
+    client = dropbox.client.DropboxClient(g.sess)
+    res = client.thumbnail(path)
+    return Response(response=res.read(), content_type=res.msg.type)
+    
+@app.route('/clear')
+def clear():
+    del session['request_token']
+    del session['request_token_secret']
+    del session['access_token']
+    del session['access_token_secret']
+    return 'clear ok'
+
 def get_access_token(sess, request_token, request_token_secret):
-    access_token = None
-    
-    if access_token is None:
-        request_token = oauth.OAuthToken(request_token, request_token_secret)
-        try:
-            access_token = sess.obtain_access_token(request_token)
-            session['access_token'] = access_token.key
-            session['access_token_secret'] = access_token.secret
-        except dropbox.rest.ErrorResponse, r:
-            print r
-            
+    request_token = oauth.OAuthToken(request_token, request_token_secret)
+    try:
+        access_token = sess.obtain_access_token(request_token)
+        session['access_token'] = access_token.key
+        session['access_token_secret'] = access_token.secret
+    except dropbox.rest.ErrorResponse, r:
+        print r
+
     return access_token
-    
+
 def redirect_authorize_url(sess, callback_url):
     request_token = sess.obtain_request_token()
     session['request_token'] = request_token.key
@@ -95,35 +99,6 @@ def requires_oauth(f):
         return f(*args, **kwargs)
     return decorated_function
 
-@app.route('/upload', methods=['GET', 'POST'])
-@requires_oauth
-def upload():
-    if request.method == 'GET':
-        return render_template('upload.html')
-        
-    else:
-        client = dropbox.client.DropboxClient(g.sess)
-                
-        uploadfile = request.files['file']
-        filename = secure_filename(uploadfile.filename)
-        response = client.put_file('/' + filename, uploadfile.stream.getvalue())
-        return redirect(url_for('list'))
-        
-@app.route('/thumbnail/<path:path>/')
-@requires_oauth
-def thumbnail(path):
-    client = dropbox.client.DropboxClient(g.sess)
-    res = client.thumbnail(path)
-    return Response(response=res.read(), content_type=res.msg.type)
-    
-    
-@app.route('/clear')
-def clear():
-    del session['request_token']
-    del session['request_token_secret']
-    del session['access_token']
-    del session['access_token_secret']
-    return 'clear ok'
 
 if __name__ == '__main__':
     app.run(debug=True)
