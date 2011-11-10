@@ -46,6 +46,10 @@ def requires_oauth(f):
 def before_request():
     g.sess = dropbox.session.DropboxSession(APP_KEY, APP_SECRET, ACCESS_TYPE)
 
+@app.route('/')
+def index():
+    return render_template('index.html')
+    
 @app.route('/list')
 @requires_oauth
 def list():
