@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from flask import Flask, request, session, redirect, url_for, g, \
-                  render_template
+                  render_template, Response
 
 import dropbox 
 import oauth.oauth as oauth
@@ -8,8 +8,13 @@ from functools import wraps
 from werkzeug import secure_filename
 
 import simplejson as json
-with open('/home/dotcloud/environment.json') as f:
-    env = json.load(f)
+try:
+    with open('/home/dotcloud/environment.json') as f:
+        env = json.load(f)
+except:
+    # localtest
+    with open('/tmp/environment.json') as f:
+        env = json.load(f)
 
 app = Flask(__name__)
 app.secret_key=env['SECRET_KEY']
