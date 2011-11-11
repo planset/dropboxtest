@@ -2,19 +2,18 @@
 from flask import Flask, request, session, redirect, url_for, g, \
                   render_template, Response
 
-import dropbox 
-import oauth.oauth as oauth
 from functools import wraps
 from werkzeug import secure_filename
-
+import dropbox 
+import oauth.oauth as oauth
 import simplejson as json
-try:
-    with open('/home/dotcloud/environment.json') as f:
-        env = json.load(f)
-except:
-    # localtest
-    with open('/tmp/environment.json') as f:
-        env = json.load(f)
+
+env_file_path = '/home/dotcloud/environment.json'
+if not os.path.exists(env_file_path):
+    env_file_path = '/tmp/environment.json'
+
+with open(env_file_path) as f:
+    env = json.load(f)
 
 app = Flask(__name__)
 app.secret_key=env['SECRET_KEY']
