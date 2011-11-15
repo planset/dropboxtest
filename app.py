@@ -7,6 +7,7 @@ from werkzeug import secure_filename
 import dropbox 
 import oauth.oauth as oauth
 import simplejson as json
+import os
 
 env_file_path = '/home/dotcloud/environment.json'
 if not os.path.exists(env_file_path):
